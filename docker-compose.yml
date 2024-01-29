@@ -1,0 +1,81 @@
+version: "3.8"
+services:
+
+    php:
+        build:
+            context: .
+            target: php
+            args:
+                - APP_ENV=${APP_ENV}
+            dockerfile: Dockerfile
+        environment:
+            - APP_ENV=${APP_ENV}
+            - CONTAINER_ROLE=app
+        working_dir: /var/www/html
+        volumes:
+            - ./:/var/www/html
+        ports:
+            - 8000:8000
+        depends_on:
+            - mysql
+            - redis
+        networks:
+            - reiz
+
+    mysql:
+        image: mysql:8.0
+        ports:
+            -   3307:3307
+        environment:
+            - MYSQL_DATABASE=${DB_DATABASE}
+            - MYSQL_USER=${DB_USERNAME}
+            - MYSQL_PASSWORD=${DB_PASSWORD}
+            - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+        volumes:
+            - reiz-mysql:/var/lib/mysql
+        networks:
+            - reiz
+
+    redis:
+        image: 'redis:alpine'
+        ports:
+            - 6379:6379
+        volumes:
+            - 'reiz-redis:/data'
+        networks:
+            - reiz
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+
+    queue:
+        build:
+            context: .
+            target: php
+            args:
+                - APP_ENV=${APP_ENV}
+        environment:
+            - APP_ENV=${APP_ENV}
+            - CONTAINER_ROLE=queue
+        working_dir: /var/www/html
+        depends_on:
+            - mysql
+            - redis
+            - php
+        volumes:
+            - ./:/var/www/html
+        networks:
+            - reiz
+
+networks:
+    reiz:
+        driver: bridge
+volumes:
+    reiz-mysql:
+        driver: local
+    reiz-redis:
+        driver: local
